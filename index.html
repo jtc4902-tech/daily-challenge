@@ -317,18 +317,22 @@ function showSetup(err){
 /* ---------- 멤버 카드 ---------- */
 function renderMembers(){
   const COLORS = ["var(--m1)","var(--m2)","var(--m3)"];
-  $("#members").innerHTML = members.map((m,i)=>{
-    const fails = records.filter(r=>r.member_id===m.id && r.type==="fail").length;
+  const failOf = m => records.filter(r=>r.member_id===m.id && r.type==="fail").length;
+  // 실패 많은 사람이 1순위. 모두 같으면 이름(ㄱㄴㄷ) 순.
+  const ranked = [...members].sort((a,b)=> failOf(b)-failOf(a) || a.name.localeCompare(b.name,"ko"));
+  $("#members").innerHTML = ranked.map((m,i)=>{
+    const fails = failOf(m);
     const vacUsed = records.filter(r=>r.member_id===m.id && r.type==="vacation").length;
     const accrued = monthsAccrued(m.join_month);
     const left = accrued - vacUsed;
     const money = fails * PENALTY;
+    const color = COLORS[(m.sort_order-1)%3];   // 색깔은 사람마다 고정
     const vacHtml = left<=0
       ? `<span class="v nope">사용 불가</span>`
       : `<span class="v vac">${left}<span style="color:var(--dim);font-size:11px">/${accrued}</span></span>`;
     return `
-    <div class="mcard" style="--c:${COLORS[i%3]}">
-      <div class="who"><div class="nm">${m.name}</div><div class="rank">${["1순","2순","3순"][i]||""}</div></div>
+    <div class="mcard" style="--c:${color}">
+      <div class="who"><div class="nm">${m.name}</div><div class="rank">${i+1}순</div></div>
       <div class="stat"><span class="k">🏖️ 휴가</span>${vacHtml}</div>
       <div class="stat"><span class="k">❌ 실패</span><span class="v ${fails?'fail':'zero'}">${fails}</span></div>
       <div class="foot"><span class="stat" style="width:100%"><span class="k">💸 벌금</span><span class="v ${money?'money':'zero'}">${comma(money)}원</span></span></div>
