@@ -89,6 +89,15 @@
   .legend span{display:inline-flex;align-items:center;gap:5px}
   .dot{width:8px;height:8px;border-radius:3px;display:inline-block}
 
+  /* rules */
+  .rules{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 16px}
+  .rules h2{font-size:16px;font-weight:800;margin:0 0 15px;letter-spacing:-.01em}
+  .rule{margin-bottom:14px}
+  .rule:last-child{margin-bottom:0}
+  .rule .rt{font-size:13px;font-weight:800;margin-bottom:4px}
+  .rule .rd{font-size:12px;color:var(--muted);font-weight:500;line-height:1.65}
+  .rule .rd b{color:var(--text);font-weight:700}
+
   /* FAB + modal */
   .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:30;
     background:linear-gradient(180deg,#ffe27a,var(--gold));color:#3a2c00;border:none;
@@ -159,6 +168,30 @@
       <span><i class="dot" style="background:#ffce4a"></i>정산</span>
     </div>
   </div>
+
+  <section class="rules">
+    <h2>📜 데일리 챌린지 규칙</h2>
+    <div class="rule">
+      <div class="rt">🎯 매일의 미션</div>
+      <div class="rd">공부 20분 ＋ 아래 챌린지 중 1개<br>독서 · 일기 · 얼굴팩 · 콘텐츠 후기 · 기타<br><b>둘 다 해야 성공.</b> 하나라도 빠지면 그날은 실패예요.</div>
+    </div>
+    <div class="rule">
+      <div class="rt">💸 벌금</div>
+      <div class="rd">실패 1회당 <b>3,300원</b>. 정산일에 모아서 정산합니다.</div>
+    </div>
+    <div class="rule">
+      <div class="rt">🏖️ 휴가</div>
+      <div class="rd"><b>매월 1일에 1개씩 자동 적립</b> (안 쓰면 계속 쌓여요). 여행이나 불가피한 사정에 사용하세요. 휴가 쓴 날은 실패로 치지 않습니다.</div>
+    </div>
+    <div class="rule">
+      <div class="rt">✍️ 기록 방법</div>
+      <div class="rd">성공한 날은 안 적어도 돼요. <b>실패하거나 휴가 쓴 날만</b> 기록하면 됩니다. 모임·정산 일정은 캘린더에 직접 추가하세요.</div>
+    </div>
+    <div class="rule">
+      <div class="rt">👥 멤버</div>
+      <div class="rd">구지영 · 김시연 · 정태찬</div>
+    </div>
+  </section>
 
   <div class="hint" id="hint">기록을 추가하면 모두에게 실시간으로 보여요. 날짜를 누르면 수정·삭제할 수 있어요.</div>
   <div class="setup" id="setupMsg" style="display:none"></div>
@@ -238,11 +271,12 @@ const pad = n => String(n).padStart(2,"0");
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 
 function monthsAccrued(joinMonth){
-  // 적립 시작월부터 이번 달까지: 매월 1일 +1 (시작월 포함)
+  // 시작월은 0개. 그 다음 달부터 매월 1일 +1씩 적립.
+  // 예) 시작 2026-06 → 6월 0개, 7월 1개, 8월 2개 …
   if(!joinMonth) return 0;
   const j = new Date(joinMonth);
   const n = new Date();
-  return (n.getFullYear()*12 + n.getMonth()) - (j.getFullYear()*12 + j.getMonth()) + 1;
+  return (n.getFullYear()*12 + n.getMonth()) - (j.getFullYear()*12 + j.getMonth());
 }
 
 // 특정 멤버의 남은 휴가 (excludeId 기록은 제외 — 수정 시 자기 자신 제외용)
