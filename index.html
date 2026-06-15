@@ -172,6 +172,10 @@
   <section class="rules">
     <h2>📜 데일리 챌린지 규칙</h2>
     <div class="rule">
+      <div class="rt">🌱 챌린지의 취지</div>
+      <div class="rd">거창한 목표가 아니라, <b>매일 조금씩이라도 멈추지 않고 나아가는 것</b>이 목적이에요. 혼자선 작심삼일이 되기 쉬우니, 서로가 약한 강제력이 되어주는 장치예요.</div>
+    </div>
+    <div class="rule">
       <div class="rt">🎯 매일의 미션</div>
       <div class="rd">공부 20분 ＋ 아래 챌린지 중 1개<br>독서 · 일기 · 얼굴팩 · 콘텐츠 후기 · 기타<br><b>둘 다 해야 성공.</b> 하나라도 빠지면 그날은 실패예요.</div>
     </div>
@@ -181,7 +185,7 @@
     </div>
     <div class="rule">
       <div class="rt">🏖️ 휴가</div>
-      <div class="rd"><b>매월 1일에 1개씩 자동 적립</b> (안 쓰면 계속 쌓여요). 여행이나 불가피한 사정에 사용하세요. 휴가 쓴 날은 실패로 치지 않습니다.</div>
+      <div class="rd">여행 · 가족 행사 · 예비군처럼 <b>흐름이 끊길 수밖에 없는 진짜 사정</b>을 위한 거예요. 매월 1일 1개씩 자동 적립되고, 휴가 쓴 날은 실패로 치지 않아요. 단, <b>남은 휴가는 해가 바뀌면 초기화돼요(이월 안 됨)</b> — 몰아서 쓰는 걸 막기 위해서예요. 연차처럼 모았다 쓰는 게 아니라 <b>꼭 필요할 때만!</b><br>이런 식은 ❌ : 하기 싫어서 실패를 휴가로 덮기 · 귀찮아서 건너뛰기 · 연말에 몰아 쉬기</div>
     </div>
     <div class="rule">
       <div class="rt">✍️ 기록 방법</div>
@@ -271,19 +275,23 @@ const pad = n => String(n).padStart(2,"0");
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 
 function monthsAccrued(joinMonth){
-  // 시작월은 0개. 그 다음 달부터 매월 1일 +1씩 적립.
-  // 예) 시작 2026-06 → 6월 0개, 7월 1개, 8월 2개 …
+  // 연 단위 적립. 한 해 안에서 매월 1일 +1, 매년 1월 1일에 0으로 초기화(이월 없음).
+  // 가입한 해: 가입월=0, 다음 달부터 +1 (예 2026-06 → 6월 0 … 12월 6).
+  // 그 이후 해: 1월=0(리셋), 2월부터 +1 (… 12월 11).
   if(!joinMonth) return 0;
   const j = new Date(joinMonth);
   const n = new Date();
-  return (n.getFullYear()*12 + n.getMonth()) - (j.getFullYear()*12 + j.getMonth());
+  if(n.getFullYear() < j.getFullYear()) return 0;           // 가입 전
+  if(n.getFullYear() === j.getFullYear()) return Math.max(0, n.getMonth() - j.getMonth());
+  return n.getMonth();                                      // 이후 해: 1월 0 … 12월 11
 }
 
 // 특정 멤버의 남은 휴가 (excludeId 기록은 제외 — 수정 시 자기 자신 제외용)
 function remainingVac(mid, excludeId){
   const m = members.find(x=>x.id===mid);
   if(!m) return 0;
-  const used = records.filter(r=>r.member_id===mid && r.type==="vacation" && r.id!==excludeId).length;
+  const yr = String(new Date().getFullYear());
+  const used = records.filter(r=>r.member_id===mid && r.type==="vacation" && r.id!==excludeId && r.date.slice(0,4)===yr).length;
   return monthsAccrued(m.join_month) - used;
 }
 
@@ -322,7 +330,7 @@ function renderMembers(){
   const ranked = [...members].sort((a,b)=> failOf(b)-failOf(a) || a.name.localeCompare(b.name,"ko"));
   $("#members").innerHTML = ranked.map((m,i)=>{
     const fails = failOf(m);
-    const vacUsed = records.filter(r=>r.member_id===m.id && r.type==="vacation").length;
+    const vacUsed = records.filter(r=>r.member_id===m.id && r.type==="vacation" && r.date.slice(0,4)===String(new Date().getFullYear())).length;
     const accrued = monthsAccrued(m.join_month);
     const left = accrued - vacUsed;
     const money = fails * PENALTY;
