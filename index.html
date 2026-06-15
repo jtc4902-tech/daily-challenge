@@ -58,6 +58,7 @@
   .stat .v.vac{color:var(--vac)}
   .stat .v.money{color:var(--gold)}
   .stat .v.zero{color:var(--ok)}
+  .stat .v.nope{color:var(--fail);font-size:12px}
   .mcard .foot{margin-top:auto;font-size:11px;color:var(--dim);font-weight:600;display:flex;align-items:center;gap:5px}
 
   /* calendar */
@@ -73,6 +74,8 @@
   .cell{min-height:54px;background:var(--panel-2);border:1px solid transparent;border-radius:10px;padding:4px 4px 3px;display:flex;flex-direction:column;gap:2px;overflow:hidden}
   .cell.empty{background:transparent}
   .cell.today{border-color:var(--gold)}
+  .cell.has{cursor:pointer}
+  .cell.has:active{transform:scale(.96)}
   .cell .dn{font-size:10px;color:var(--muted);font-weight:700;line-height:1}
   .cell.today .dn{color:var(--gold)}
   .chip{font-size:9px;font-weight:700;border-radius:5px;padding:1px 4px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -104,6 +107,7 @@
   .seg button.sel{background:var(--text);color:var(--ink);border-color:var(--text)}
   .memberseg{display:flex;gap:6px}
   .memberseg button.sel{background:var(--c,var(--text));color:#16181f;border-color:transparent}
+  .memberseg button:disabled{opacity:.32;cursor:not-allowed}
   input[type=date],input[type=text]{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
     padding:12px;border-radius:11px;font-size:15px;font-family:inherit}
   .sheet .row{display:flex;gap:9px;margin-top:6px}
@@ -116,6 +120,14 @@
     padding:11px 20px;border-radius:999px;font-size:13px;font-weight:800;z-index:50;opacity:0;transition:.25s;pointer-events:none}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
   .delx{margin-left:auto;background:none;border:none;color:var(--dim);font-size:13px;cursor:pointer;padding:0 2px}
+
+  /* day detail list */
+  .rec{display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px}
+  .rec .rl{flex:1;font-size:13px;font-weight:600;line-height:1.4}
+  .rec button{border:none;border-radius:9px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;flex:0 0 auto}
+  .rec .recedit{background:var(--panel);color:var(--text);border:1px solid var(--line)}
+  .rec .recdel{background:rgba(255,93,99,.16);color:#ff8388}
+  #dayList{max-height:48vh;overflow-y:auto;margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -148,14 +160,14 @@
     </div>
   </div>
 
-  <div class="hint" id="hint">기록을 추가하면 모두에게 실시간으로 보여요.</div>
+  <div class="hint" id="hint">기록을 추가하면 모두에게 실시간으로 보여요. 날짜를 누르면 수정·삭제할 수 있어요.</div>
   <div class="setup" id="setupMsg" style="display:none"></div>
 
   <button class="fab" id="openSheet">＋ 기록 추가</button>
 
   <div class="scrim" id="scrim">
     <div class="sheet">
-      <h2>기록 추가</h2>
+      <h2 id="sheetTitle">기록 추가</h2>
       <div class="field">
         <label>종류</label>
         <div class="seg" id="typeSeg">
@@ -184,6 +196,16 @@
     </div>
   </div>
 
+  <div class="scrim" id="dayScrim">
+    <div class="sheet">
+      <h2 id="dayTitle">기록</h2>
+      <div id="dayList"></div>
+      <div class="row">
+        <button class="btn-ghost" id="dayClose" style="flex:1">닫기</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -200,6 +222,7 @@ const PENALTY = 3300; // 실패 1회당 벌금(원). 바뀌면 이 숫자만 수
    2. 이하 코드는 건드릴 필요 없음
    ============================================================ */
 const TYPE_KO = {fail:"실패", vacation:"휴가", meeting:"모임", settlement:"정산"};
+const TYPE_EMOJI = {fail:"❌", vacation:"🏖️", meeting:"👥", settlement:"💰"};
 const notReady = SUPABASE_URL.startsWith("YOUR_");
 let sb = null;
 if(!notReady){ sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON); }
@@ -208,6 +231,7 @@ let members = [];      // {id, name, join_month, sort_order}
 let records = [];      // {id, date, member_id, type, note}
 let viewYear, viewMonth; // 캘린더가 보고 있는 연/월
 let sel = {type:"fail", member_id:null};
+let editId = null;     // 수정 중인 기록 id (null이면 새로 추가)
 
 const $ = s => document.querySelector(s);
 const pad = n => String(n).padStart(2,"0");
@@ -219,6 +243,14 @@ function monthsAccrued(joinMonth){
   const j = new Date(joinMonth);
   const n = new Date();
   return (n.getFullYear()*12 + n.getMonth()) - (j.getFullYear()*12 + j.getMonth()) + 1;
+}
+
+// 특정 멤버의 남은 휴가 (excludeId 기록은 제외 — 수정 시 자기 자신 제외용)
+function remainingVac(mid, excludeId){
+  const m = members.find(x=>x.id===mid);
+  if(!m) return 0;
+  const used = records.filter(r=>r.member_id===mid && r.type==="vacation" && r.id!==excludeId).length;
+  return monthsAccrued(m.join_month) - used;
 }
 
 function comma(n){ return n.toLocaleString("ko-KR"); }
@@ -257,10 +289,13 @@ function renderMembers(){
     const accrued = monthsAccrued(m.join_month);
     const left = accrued - vacUsed;
     const money = fails * PENALTY;
+    const vacHtml = left<=0
+      ? `<span class="v nope">사용 불가</span>`
+      : `<span class="v vac">${left}<span style="color:var(--dim);font-size:11px">/${accrued}</span></span>`;
     return `
     <div class="mcard" style="--c:${COLORS[i%3]}">
       <div class="who"><div class="nm">${m.name}</div><div class="rank">${["1순","2순","3순"][i]||""}</div></div>
-      <div class="stat"><span class="k">🏖️ 휴가</span><span class="v vac">${left}<span style="color:var(--dim);font-size:11px">/${accrued}</span></span></div>
+      <div class="stat"><span class="k">🏖️ 휴가</span>${vacHtml}</div>
       <div class="stat"><span class="k">❌ 실패</span><span class="v ${fails?'fail':'zero'}">${fails}</span></div>
       <div class="foot"><span class="stat" style="width:100%"><span class="k">💸 벌금</span><span class="v ${money?'money':'zero'}">${comma(money)}원</span></span></div>
     </div>`;
@@ -283,14 +318,62 @@ function renderCalendar(){
   for(let d=1; d<=days; d++){
     const ds = `${viewYear}-${pad(viewMonth+1)}-${pad(d)}`;
     const dayRecs = records.filter(r=>r.date===ds);
+    const has = dayRecs.length>0;
     const chips = dayRecs.slice(0,4).map(r=>{
       const who = r.member_id ? (members.find(m=>m.id===r.member_id)?.name.slice(0,2)||"") : "";
       const label = r.type==="meeting"||r.type==="settlement" ? TYPE_KO[r.type] : who;
       return `<span class="chip ${r.type}">${label}</span>`;
     }).join("");
-    html += `<div class="cell ${ds===today?'today':''}"><span class="dn">${d}</span>${chips}</div>`;
+    html += `<div class="cell ${ds===today?'today':''} ${has?'has':''}" ${has?`data-date="${ds}"`:''}><span class="dn">${d}</span>${chips}</div>`;
   }
   $("#calGrid").innerHTML = html;
+  $("#calGrid").querySelectorAll(".cell.has").forEach(c=>{
+    c.onclick = ()=> openDay(c.dataset.date);
+  });
+}
+
+/* ---------- 날짜별 기록 보기 / 수정 / 삭제 ---------- */
+function openDay(ds){
+  const a = ds.split("-");
+  const recs = records.filter(r=>r.date===ds);
+  $("#dayTitle").textContent = `${a[0]}. ${+a[1]}. ${+a[2]} 기록`;
+  $("#dayList").innerHTML = recs.length ? recs.map(r=>{
+    const who = r.member_id ? (members.find(m=>m.id===r.member_id)?.name||"") : "";
+    const parts = [`${TYPE_EMOJI[r.type]} ${TYPE_KO[r.type]}`];
+    if(who) parts.push(who);
+    if(r.note) parts.push(r.note);
+    return `<div class="rec">
+      <span class="rl">${parts.join(" · ")}</span>
+      <button class="recedit" data-id="${r.id}">수정</button>
+      <button class="recdel" data-id="${r.id}">삭제</button>
+    </div>`;
+  }).join("") : `<div class="hint" style="display:block;margin-top:4px">기록이 없어요.</div>`;
+
+  $("#dayList").querySelectorAll(".recedit").forEach(b=>{
+    b.onclick = ()=> editRecord(Number(b.dataset.id));
+  });
+  $("#dayList").querySelectorAll(".recdel").forEach(b=>{
+    b.onclick = ()=> delRecord(Number(b.dataset.id));
+  });
+  $("#dayScrim").classList.add("on");
+}
+function closeDay(){ $("#dayScrim").classList.remove("on"); }
+$("#dayClose").onclick = closeDay;
+$("#dayScrim").onclick = e=>{ if(e.target===$("#dayScrim")) closeDay(); };
+
+async function delRecord(id){
+  if(!confirm("이 기록을 삭제할까요?")) return;
+  const { error } = await sb.from("records").delete().eq("id", id);
+  if(error){ toast("삭제 실패: "+error.message); return; }
+  closeDay(); toast("삭제됐어요");
+  await load();
+}
+
+function editRecord(id){
+  const r = records.find(x=>x.id===id);
+  if(!r) return;
+  closeDay();
+  openSheet(r);
 }
 
 /* ---------- 입력 시트 ---------- */
@@ -299,30 +382,51 @@ function buildMemberSeg(){
   $("#memberSeg").innerHTML = members.map((m,i)=>
     `<button data-id="${m.id}" style="--c:${COLORS[i%3]}">${m.name}</button>`).join("");
   $("#memberSeg").querySelectorAll("button").forEach(b=>{
-    b.onclick=()=>{ sel.member_id=Number(b.dataset.id);
-      $("#memberSeg").querySelectorAll("button").forEach(x=>x.classList.remove("sel"));
-      b.classList.add("sel"); };
+    b.onclick=()=>{
+      if(b.disabled) return;
+      sel.member_id=Number(b.dataset.id);
+      setMemberUI(sel.member_id);
+    };
   });
+}
+
+function setTypeUI(t){
+  $("#typeSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("sel", x.dataset.type===t));
+}
+function setMemberUI(id){
+  $("#memberSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("sel", Number(x.dataset.id)===id));
 }
 
 function updateSheetForType(){
   const personal = sel.type==="fail" || sel.type==="vacation";
   $("#memberField").style.display = personal ? "block" : "none";
   $("#noteLabel").textContent = personal ? "메모 (선택)" : "장소·시간 (선택)";
+  // 휴가일 때 남은 휴가 없는 멤버는 선택 비활성화
+  $("#memberSeg").querySelectorAll("button").forEach(b=>{
+    const mid = Number(b.dataset.id);
+    const dis = sel.type==="vacation" && remainingVac(mid, editId) <= 0;
+    b.disabled = dis;
+    if(dis && sel.member_id===mid){ sel.member_id=null; b.classList.remove("sel"); }
+  });
 }
 
 $("#typeSeg").querySelectorAll("button").forEach(b=>{
-  b.onclick=()=>{ sel.type=b.dataset.type;
-    $("#typeSeg").querySelectorAll("button").forEach(x=>x.classList.remove("sel"));
-    b.classList.add("sel"); updateSheetForType(); };
+  b.onclick=()=>{ sel.type=b.dataset.type; setTypeUI(sel.type); updateSheetForType(); };
 });
 
-function openSheet(){
-  $("#dateInput").value = todayStr();
-  $("#noteInput").value = "";
+function openSheet(rec){
+  editId = rec ? rec.id : null;
+  $("#sheetTitle").textContent = rec ? "기록 수정" : "기록 추가";
+  sel.type = rec ? rec.type : "fail";
+  sel.member_id = rec ? rec.member_id : null;
+  setTypeUI(sel.type);
+  setMemberUI(sel.member_id);
+  updateSheetForType();
+  $("#dateInput").value = rec ? rec.date : todayStr();
+  $("#noteInput").value = (rec && rec.note) ? rec.note : "";
   $("#scrim").classList.add("on");
 }
-function closeSheet(){ $("#scrim").classList.remove("on"); }
+function closeSheet(){ $("#scrim").classList.remove("on"); editId=null; }
 
 $("#openSheet").onclick = ()=>{ if(notReady){toast("먼저 Supabase 연결이 필요해요");return;} openSheet(); };
 $("#closeSheet").onclick = closeSheet;
@@ -331,6 +435,9 @@ $("#scrim").onclick = e=>{ if(e.target===$("#scrim")) closeSheet(); };
 $("#saveBtn").onclick = async ()=>{
   const personal = sel.type==="fail" || sel.type==="vacation";
   if(personal && !sel.member_id){ toast("누구인지 선택하세요"); return; }
+  if(sel.type==="vacation" && remainingVac(sel.member_id, editId) <= 0){
+    toast("남은 휴가가 없어요 · 사용 불가"); return;
+  }
   const row = {
     date: $("#dateInput").value || todayStr(),
     member_id: personal ? sel.member_id : null,
@@ -338,10 +445,15 @@ $("#saveBtn").onclick = async ()=>{
     note: $("#noteInput").value.trim() || null
   };
   $("#saveBtn").textContent="저장 중…";
-  const { error } = await sb.from("records").insert(row);
+  let error;
+  if(editId){
+    ({ error } = await sb.from("records").update(row).eq("id", editId));
+  } else {
+    ({ error } = await sb.from("records").insert(row));
+  }
   $("#saveBtn").textContent="저장";
   if(error){ toast("저장 실패: "+error.message); return; }
-  closeSheet(); toast("기록됐어요");
+  closeSheet(); toast(editId?"수정됐어요":"기록됐어요");
   await load();
 };
 
