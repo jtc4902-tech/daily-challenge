@@ -366,7 +366,7 @@ function renderCalendar(){
     const dayRecs = records.filter(r=>r.date===ds);
     const has = dayRecs.length>0;
     const chips = dayRecs.slice(0,4).map(r=>{
-      const who = r.member_id ? (members.find(m=>m.id===r.member_id)?.name.slice(0,2)||"") : "";
+      const who = r.member_id ? (members.find(m=>m.id===r.member_id)?.name.slice(0,3)||"") : "";
       const label = r.type==="meeting"||r.type==="settlement" ? TYPE_KO[r.type] : who;
       return `<span class="chip ${r.type}">${label}</span>`;
     }).join("");
