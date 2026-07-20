@@ -29,6 +29,7 @@
   - 노출: **Cloudflare Tunnel**(`~/.cloudflared/config.yml`에 memories.apexlog.kr → localhost:8789 ingress 추가). DNS는 `cloudflared tunnel route dns`로 등록. HTTPS 자동.
   - 엔드포인트: `GET /api/stats·/api/list·/thumb/<id>·/media/<id>(Range)`, `POST /api/upload`(multipart), `DELETE /api/item/<id>`. CORS `*`.
   - **업로드 암호 없음**(링크 공유=접근, 챌린지 앱과 동일 보안 수준). 잠그려면 서비스에 `MEM_UPLOAD_KEY` env 추가 → 프론트에 X-Upload-Key 헤더 로직 부활 필요.
+- **🔄 Immich 자동 동기화(2026-07-20):** `~/challenge-memory/immich_sync.py` — 규칙 **"김시연 OR 구지영이 나온" 모든 사진·영상**을 Immich 얼굴인식에서 뽑아 추억 탭에 자동 추가(정태찬 단독 셀카 570장은 제외). 크론 `0 5 * * *`(매일 새벽 5시, 로그 `sync.log`). 중복은 `immich_id` 컬럼으로 스킵 → 수동 업로드(immich_id NULL)와 공존. Immich API는 `~/immich/.env`의 `IMMICH_API_KEY`, `POST /api/search/metadata`(personIds=AND). ⚠️촬영일: 카톡 사진은 EXIF가 저장일로 덮여있어, **파일명 유닉스 타임스탬프를 우선**(`best_date()`)해 실제 날짜 복원. 첫 동기화 결과 121개(사진113·영상8, 2023.03~2026.02).
 
 ## 수정 → 배포 절차
 1. `index.html` 수정
