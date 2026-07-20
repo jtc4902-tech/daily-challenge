@@ -12,7 +12,7 @@
 - **백엔드:** Supabase — 프로젝트 ref `pkmgspdlnveknkxxenqm`
   - URL: `https://pkmgspdlnveknkxxenqm.supabase.co`
   - 공개 키(anon/publishable, 브라우저 노출 안전): `sb_publishable_7iR6bfcN6eNwdYRfnbnM7g_5xtdXd3p`
-  - 테이블: `members`, `records` / RLS는 로그인 없는 링크 공개형(anon에 select·insert·delete 허용)
+  - 테이블: `members`, `records` / RLS는 로그인 없는 링크 공개형(anon에 select·insert·**update**·delete 허용 — update 정책은 2026-07-20 추가. 그 전엔 update 정책이 없어서 '수정'이 조용히 무시되는 버그 있었음)
 
 ## 앱 동작 규칙 (index.html 안)
 - **벌금:** 실패 1회당 3,300원 (코드 상단 `PENALTY`).
@@ -32,4 +32,4 @@
 
 > 가입 / 로그인 / 권한 승인(GitHub·Vercel·Supabase)은 사용자가 직접 합니다.
 
-_최종 업데이트: 2026-06-15 (휴가 연 단위 초기화 + 취지/휴가 규칙 반영)_
+_최종 업데이트: 2026-07-20 (records UPDATE RLS 정책 추가 — 수정 안 되던 버그 해결)_
