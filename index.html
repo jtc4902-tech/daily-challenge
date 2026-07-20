@@ -182,9 +182,14 @@
   .viewer img,.viewer video{max-width:100%;max-height:82vh;border-radius:12px}
   .viewer .vclose{position:fixed;top:16px;right:18px;background:rgba(255,255,255,.12);border:none;
     color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer}
-  .viewer .vdel{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
-    background:rgba(255,93,99,.18);border:1px solid rgba(255,93,99,.4);color:#ff8388;
-    padding:11px 22px;border-radius:999px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+  .viewer .vbar{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+    display:flex;gap:7px;align-items:center;background:rgba(20,22,31,.92);border:1px solid var(--line);
+    padding:8px;border-radius:14px;backdrop-filter:blur(4px)}
+  .viewer .vbar input[type=date]{background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:9px 10px;border-radius:9px;font-size:14px;font-family:inherit;width:auto}
+  .viewer .vbar button{border:none;border-radius:9px;padding:9px 12px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+  .viewer #vSaveDate{background:var(--gold);color:#3a2c00}
+  .viewer #vDel{background:rgba(255,93,99,.18);border:1px solid rgba(255,93,99,.4);color:#ff8388}
   .viewer .vmeta{position:fixed;top:20px;left:18px;color:#cfd3ea;font-size:12px;font-weight:700}
 
   /* 업로드 진행 */
@@ -306,7 +311,11 @@
     <button class="vclose" id="vClose">✕</button>
     <div class="vmeta" id="vMeta"></div>
     <div id="vBody"></div>
-    <button class="vdel" id="vDel">🗑 삭제</button>
+    <div class="vbar">
+      <input type="date" id="vDate" />
+      <button id="vSaveDate">📅 날짜 저장</button>
+      <button id="vDel">🗑</button>
+    </div>
   </div>
 
   <div class="scrim" id="scrim">
@@ -697,6 +706,7 @@ function openViewer(it){
     ? `<video controls autoplay playsinline src="${MEM_API}${it.src}"></video>`
     : `<img src="${MEM_API}${it.src}" alt="">`;
   $("#vMeta").textContent = [it.uploader, it.taken_at, it.caption].filter(Boolean).join(" · ");
+  $("#vDate").value = it.taken_at || "";
   $("#viewer").classList.add("on");
 }
 function closeViewer(){ $("#viewer").classList.remove("on"); $("#vBody").innerHTML=""; curViewId=null; }
@@ -709,6 +719,18 @@ $("#vDel").onclick = async ()=>{
     if(!r.ok){ toast("삭제 실패"); return; }
     closeViewer(); toast("삭제됐어요"); loadMemory();
   }catch(e){ toast("삭제 실패"); }
+};
+$("#vSaveDate").onclick = async ()=>{
+  const nd = $("#vDate").value;
+  if(!curViewId || !nd){ toast("날짜를 골라주세요"); return; }
+  try{
+    const r = await fetch(MEM_API+"/api/item/"+curViewId, {
+      method:"PATCH", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({taken_at: nd})
+    });
+    if(!r.ok){ toast("날짜 수정 실패"); return; }
+    closeViewer(); toast("날짜를 바꿨어요"); loadMemory();
+  }catch(e){ toast("날짜 수정 실패"); }
 };
 
 /* ----- 업로드 ----- */
