@@ -27,7 +27,7 @@
 - **백엔드(우리 오라클 서버):** `~/challenge-memory/server.py` — 파이썬 표준라이브러리 단일 파일(무의존, 썸네일/길이만 ffmpeg·ffprobe). systemd user 서비스 `challenge-memory.service`(포트 8789, linger로 재부팅 자동시작).
   - 저장: **외장디스크** `/mnt/photos/challenge-memories/` (media/ 원본, thumbs/ 썸네일, memories.db=SQLite 메타). ※새 디스크 아님 — 기존 Immich 외장 안 폴더. 86GB 여유.
   - 노출: **Cloudflare Tunnel**(`~/.cloudflared/config.yml`에 memories.apexlog.kr → localhost:8789 ingress 추가). DNS는 `cloudflared tunnel route dns`로 등록. HTTPS 자동.
-  - 엔드포인트: `GET /api/stats·/api/list·/thumb/<id>·/media/<id>(Range)`, `POST /api/upload`(multipart), `DELETE /api/item/<id>`. CORS `*`.
+  - 엔드포인트: `GET /api/stats·/api/list·/thumb/<id>·/media/<id>(Range)`, `POST /api/upload`(multipart), `PATCH /api/item/<id>`(taken_at/caption 수정 — 뷰어의 날짜 편집), `DELETE /api/item/<id>`. CORS `*`.
   - ⚠️**CDN 캐시 함정(2026-07-20 겪음):** Cloudflare가 빈 목록 응답을 4시간 캐싱해 새 항목이 안 보이던 버그 → server의 j()에 `Cache-Control: no-store` + 프론트 fetch에 `?_=Date.now()` 캐시버스터로 해결. list/stats는 절대 캐시 금지(thumb/media는 고유 id라 캐시 OK).
   - **업로드 암호 없음**(링크 공유=접근, 챌린지 앱과 동일 보안 수준). 잠그려면 서비스에 `MEM_UPLOAD_KEY` env 추가 → 프론트에 X-Upload-Key 헤더 로직 부활 필요.
 - **🔄 Immich 자동 동기화(2026-07-20):** `~/challenge-memory/immich_sync.py` — 규칙 **"김시연 OR 구지영이 나온" 모든 사진·영상**을 Immich 얼굴인식에서 뽑아 추억 탭에 자동 추가(정태찬 단독 셀카 570장은 제외). 크론 `0 5 * * *`(매일 새벽 5시, 로그 `sync.log`). 중복은 `immich_id` 컬럼으로 스킵 → 수동 업로드(immich_id NULL)와 공존. Immich API는 `~/immich/.env`의 `IMMICH_API_KEY`, `POST /api/search/metadata`(personIds=AND). ⚠️촬영일: 카톡 사진은 EXIF가 저장일로 덮여있어, **파일명 유닉스 타임스탬프를 우선**(`best_date()`)해 실제 날짜 복원. 첫 동기화 결과 121개(사진113·영상8, 2023.03~2026.02).
