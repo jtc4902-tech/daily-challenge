@@ -665,9 +665,10 @@ function phCell(it){
 
 async function loadMemory(){
   try{
+    const bust = "?_=" + Date.now();          // CDN 캐시 우회 — 항상 최신 목록
     const [s, l] = await Promise.all([
-      fetch(MEM_API+"/api/stats").then(r=>r.json()),
-      fetch(MEM_API+"/api/list").then(r=>r.json())
+      fetch(MEM_API+"/api/stats"+bust).then(r=>r.json()),
+      fetch(MEM_API+"/api/list"+bust).then(r=>r.json())
     ]);
     $("#memSince").textContent  = s.since || "—";
     $("#memPhotos").textContent = s.photos || 0;
