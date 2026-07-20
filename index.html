@@ -768,6 +768,31 @@ $("#fileInput").onchange = e=>{
 };
 $("#upCancel").onclick = ()=>{ $("#upScrim").classList.remove("on"); pendingFiles=[]; };
 $("#upScrim").onclick = e=>{ if(e.target===$("#upScrim")) $("#upCancel").click(); };
+const BIG = 90*1024*1024, CHUNK = 5*1024*1024;   // 90MB 넘으면 5MB씩 쪼개 전송(CDN 100MB 우회)
+function newUid(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g,"");
+  return (Date.now().toString(16)+Math.random().toString(16).slice(2)).padEnd(24,"0").slice(0,24);
+}
+async function uploadOne(f, meta, onprog){
+  if(f.size <= BIG){
+    const fd = new FormData();
+    fd.append("file", f); fd.append("uploader", meta.uploader);
+    fd.append("caption", meta.caption); fd.append("taken_at", meta.taken_at);
+    const r = await fetch(MEM_API+"/api/upload", {method:"POST", body:fd});
+    return r.ok;
+  }
+  const uid = newUid();                            // 대용량 → 청크 전송
+  for(let off=0; off<f.size; off+=CHUNK){
+    const end = Math.min(off+CHUNK, f.size);
+    const r = await fetch(MEM_API+"/api/chunk", {method:"POST", headers:{"X-Upload-Id":uid}, body:f.slice(off,end)});
+    if(!r.ok) return false;
+    if(onprog) onprog(end/f.size);
+  }
+  const r = await fetch(MEM_API+"/api/chunk_complete", {method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({uid, filename:f.name, uploader:meta.uploader, caption:meta.caption, taken_at:meta.taken_at})});
+  return r.ok;
+}
 $("#upSave").onclick = async ()=>{
   if(!upMember){ toast("누가 올리는지 선택하세요"); return; }
   if(!pendingFiles.length) return;
@@ -777,15 +802,12 @@ $("#upSave").onclick = async ()=>{
   let done = 0;
   for(let i=0;i<pendingFiles.length;i++){
     const f = pendingFiles[i];
-    $("#upProg").textContent = `올리는 중… ${i+1}/${pendingFiles.length}`;
-    const fd = new FormData();
-    fd.append("file", f);
-    fd.append("uploader", upMember);
-    fd.append("caption", cap);
-    fd.append("taken_at", dateOverride || fileDate(f));
+    const meta = {uploader:upMember, caption:cap, taken_at: dateOverride || fileDate(f)};
+    const base = `올리는 중… ${i+1}/${pendingFiles.length}`;
+    $("#upProg").textContent = base + (f.size>BIG ? " (0%)" : "");
     try{
-      const r = await fetch(MEM_API+"/api/upload", {method:"POST", body:fd});
-      if(r.ok) done++;
+      const ok = await uploadOne(f, meta, p=>{ $("#upProg").textContent = base + ` (${Math.round(p*100)}%)`; });
+      if(ok) done++;
     }catch(e){}
   }
   $("#upSave").disabled = false;
