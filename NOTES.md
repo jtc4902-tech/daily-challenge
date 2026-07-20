@@ -21,6 +21,15 @@
 - **멤버 정렬:** 실패 많은 순으로 1·2·3순위(맨 앞=실패 최다). 모두 같으면 이름 ㄱㄴㄷ 순. 카드 색은 사람마다 고정.
 - **기록 타입:** 실패 / 휴가 / 모임 / 정산. 캘린더에서 기록 있는 날짜를 누르면 그날 기록을 수정·삭제 가능.
 
+## 📸 추억 탭 (2026-07-20 추가 — 사진/영상 아카이브)
+상단 탭 `[🏆 챌린지][📸 추억]`으로 전환. **챌린지 로직(달력·벌금·휴가)은 1도 안 건드림** — 추억은 완전히 별개 저장소라 장애 격리됨(추억 서버가 죽어도 벌금 기록은 Supabase라 멀쩡).
+- **프론트:** 같은 `index.html`. `MEM_API = https://memories.apexlog.kr`로 REST 호출(fetch). 월별 앨범 그리드, 업로더 색점(멤버 sort_order 색), 영상 썸네일+길이, 뷰어(확대·영상재생·삭제), 다중 업로드(파일 촬영일 자동).
+- **백엔드(우리 오라클 서버):** `~/challenge-memory/server.py` — 파이썬 표준라이브러리 단일 파일(무의존, 썸네일/길이만 ffmpeg·ffprobe). systemd user 서비스 `challenge-memory.service`(포트 8789, linger로 재부팅 자동시작).
+  - 저장: **외장디스크** `/mnt/photos/challenge-memories/` (media/ 원본, thumbs/ 썸네일, memories.db=SQLite 메타). ※새 디스크 아님 — 기존 Immich 외장 안 폴더. 86GB 여유.
+  - 노출: **Cloudflare Tunnel**(`~/.cloudflared/config.yml`에 memories.apexlog.kr → localhost:8789 ingress 추가). DNS는 `cloudflared tunnel route dns`로 등록. HTTPS 자동.
+  - 엔드포인트: `GET /api/stats·/api/list·/thumb/<id>·/media/<id>(Range)`, `POST /api/upload`(multipart), `DELETE /api/item/<id>`. CORS `*`.
+  - **업로드 암호 없음**(링크 공유=접근, 챌린지 앱과 동일 보안 수준). 잠그려면 서비스에 `MEM_UPLOAD_KEY` env 추가 → 프론트에 X-Upload-Key 헤더 로직 부활 필요.
+
 ## 수정 → 배포 절차
 1. `index.html` 수정
 2. GitHub `main`에 커밋 → Vercel이 자동 재배포
@@ -33,4 +42,4 @@
 
 > 가입 / 로그인 / 권한 승인(GitHub·Vercel·Supabase)은 사용자가 직접 합니다.
 
-_최종 업데이트: 2026-07-20 (①UPDATE RLS 정책 추가 ②규칙 개정 반영: 미션 1개만·실패의 휴가 차감 허용)_
+_최종 업데이트: 2026-07-20 (①UPDATE RLS 정책 추가 ②규칙 개정: 미션 1개만·실패의 휴가 차감 허용 ③📸 추억 탭 추가 — memories.apexlog.kr / 오라클 외장 저장)_
