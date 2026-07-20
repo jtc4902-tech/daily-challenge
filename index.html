@@ -137,6 +137,62 @@
   .rec .recedit{background:var(--panel);color:var(--text);border:1px solid var(--line)}
   .rec .recdel{background:rgba(255,93,99,.16);color:#ff8388}
   #dayList{max-height:48vh;overflow-y:auto;margin-bottom:6px}
+
+  /* ===== 탭 전환 ===== */
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px}
+  .tabs button{background:transparent;border:none;color:var(--muted);font-family:inherit;
+    font-size:14px;font-weight:800;padding:11px 8px;border-radius:10px;cursor:pointer;letter-spacing:-.01em}
+  .tabs button.on{background:var(--text);color:var(--ink)}
+  #viewMemory[hidden],#viewChallenge[hidden]{display:none}
+
+  /* ===== 추억 탭 ===== */
+  .sumstrip{display:flex;gap:8px;margin-top:20px}
+  .sumcard{flex:1;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:14px;padding:12px 10px;text-align:center}
+  .sumcard .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+  .sumcard .k{font-size:10px;color:var(--muted);font-weight:700;margin-top:3px;letter-spacing:.04em}
+  .sumcard .v.gold{color:var(--gold)}
+  .monthhead{display:flex;align-items:baseline;gap:8px;margin:26px 2px 11px}
+  .monthhead .mo{font-size:16px;font-weight:800;letter-spacing:-.01em}
+  .monthhead .cnt{font-size:11px;color:var(--dim);font-weight:700}
+  .monthhead .line{flex:1;height:1px;background:var(--line)}
+  .agrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .ph{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;border:1px solid var(--line);
+    cursor:pointer;background:var(--panel-2)}
+  .ph:active{transform:scale(.97)}
+  .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .ph .cap{position:absolute;left:0;right:0;bottom:0;padding:14px 7px 5px;
+    background:linear-gradient(180deg,transparent,rgba(8,9,14,.82));
+    font-size:10px;font-weight:700;color:#fff;line-height:1.25;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ph .who{position:absolute;top:6px;left:6px;width:9px;height:9px;border-radius:3px;box-shadow:0 0 0 2px rgba(8,9,14,.5)}
+  .ph .play{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+  .ph .play svg{width:34px;height:34px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+  .ph .dur{position:absolute;top:6px;right:6px;background:rgba(8,9,14,.72);
+    font-size:9px;font-weight:800;padding:2px 5px;border-radius:6px;font-variant-numeric:tabular-nums}
+  .memempty{text-align:center;color:var(--dim);font-size:13px;font-weight:600;line-height:1.7;
+    margin-top:40px;padding:30px 20px;border:1px dashed var(--line);border-radius:16px}
+  .memfab{background:linear-gradient(180deg,#ffe27a,var(--gold))}
+
+  /* 미디어 뷰어 */
+  .viewer{position:fixed;inset:0;background:rgba(8,9,14,.94);z-index:60;display:none;
+    align-items:center;justify-content:center;padding:16px}
+  .viewer.on{display:flex}
+  .viewer img,.viewer video{max-width:100%;max-height:82vh;border-radius:12px}
+  .viewer .vclose{position:fixed;top:16px;right:18px;background:rgba(255,255,255,.12);border:none;
+    color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer}
+  .viewer .vdel{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+    background:rgba(255,93,99,.18);border:1px solid rgba(255,93,99,.4);color:#ff8388;
+    padding:11px 22px;border-radius:999px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+  .viewer .vmeta{position:fixed;top:20px;left:18px;color:#cfd3ea;font-size:12px;font-weight:700}
+
+  /* 업로드 진행 */
+  .uprog{font-size:12px;color:var(--muted);font-weight:700;text-align:center;margin-top:10px;min-height:16px}
+  .preview{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .preview .pv{width:52px;height:52px;border-radius:9px;object-fit:cover;border:1px solid var(--line)}
+  .preview .pvmore{width:52px;height:52px;border-radius:9px;background:var(--panel-2);border:1px solid var(--line);
+    display:grid;place-items:center;font-size:12px;font-weight:800;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -151,6 +207,12 @@
     </div>
   </header>
 
+  <div class="tabs">
+    <button id="tabChallenge" class="on">🏆 챌린지</button>
+    <button id="tabMemory">📸 추억</button>
+  </div>
+
+  <div id="viewChallenge">
   <section class="members" id="members"></section>
 
   <div class="calwrap">
@@ -199,8 +261,53 @@
 
   <div class="hint" id="hint">기록을 추가하면 모두에게 실시간으로 보여요. 날짜를 누르면 수정·삭제할 수 있어요.</div>
   <div class="setup" id="setupMsg" style="display:none"></div>
+  </div><!-- /viewChallenge -->
+
+  <section id="viewMemory" hidden>
+    <div class="sumstrip">
+      <div class="sumcard"><div class="v gold" id="memSince">—</div><div class="k">함께한 시작</div></div>
+      <div class="sumcard"><div class="v" id="memPhotos">0</div><div class="k">사진</div></div>
+      <div class="sumcard"><div class="v" id="memVideos">0</div><div class="k">영상</div></div>
+    </div>
+    <div id="memAlbum"></div>
+  </section>
 
   <button class="fab" id="openSheet">＋ 기록 추가</button>
+  <button class="fab memfab" id="openUpload" hidden>＋ 사진·영상 올리기</button>
+  <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden />
+
+  <!-- 추억 업로드 시트 -->
+  <div class="scrim" id="upScrim">
+    <div class="sheet">
+      <h2>📸 추억 올리기</h2>
+      <div class="preview" id="upPreview"></div>
+      <div class="field">
+        <label>누가 올려요?</label>
+        <div class="memberseg" id="upMemberSeg"></div>
+      </div>
+      <div class="field">
+        <label>언제 찍은 거예요? <span style="color:var(--dim);font-weight:600">(비우면 파일 날짜 자동)</span></label>
+        <input type="date" id="upDate" />
+      </div>
+      <div class="field">
+        <label>한 줄 설명 (선택)</label>
+        <input type="text" id="upCaption" placeholder="예: 한강 치맥, 지영 생일" maxlength="80" />
+      </div>
+      <div class="uprog" id="upProg"></div>
+      <div class="row">
+        <button class="btn-ghost" id="upCancel">취소</button>
+        <button class="btn-primary" id="upSave">올리기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 미디어 뷰어 -->
+  <div class="viewer" id="viewer">
+    <button class="vclose" id="vClose">✕</button>
+    <div class="vmeta" id="vMeta"></div>
+    <div id="vBody"></div>
+    <button class="vdel" id="vDel">🗑 삭제</button>
+  </div>
 
   <div class="scrim" id="scrim">
     <div class="sheet">
@@ -514,6 +621,156 @@ function subscribeRealtime(){
     .on("postgres_changes",{event:"*",schema:"public",table:"records"}, load)
     .subscribe();
 }
+
+/* ============================================================
+   3. 📸 추억 탭 — 사진/영상 (우리 서버: memories.apexlog.kr)
+   ============================================================ */
+const MEM_API = "https://memories.apexlog.kr";
+let pendingFiles = [];
+let upMember = null;      // 업로더 이름
+let curViewId = null;     // 뷰어에서 보고 있는 항목 id
+let memItemMap = {};
+
+const escHtml = s => (s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDur = sec => { if(!sec) return ""; const m=Math.floor(sec/60), s=Math.round(sec%60); return `${m}:${pad(s)}`; };
+const fileDate = f => { const d = new Date(f.lastModified||Date.now()); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+function memColor(name){
+  const COLORS=["var(--m1)","var(--m2)","var(--m3)"];
+  const m = members.find(x=>x.name===name);
+  return m ? COLORS[(m.sort_order-1)%3] : "var(--dim)";
+}
+
+function switchTab(mem){
+  $("#viewChallenge").hidden = mem;
+  $("#viewMemory").hidden = !mem;
+  $("#tabChallenge").classList.toggle("on", !mem);
+  $("#tabMemory").classList.toggle("on", mem);
+  $("#openSheet").hidden = mem;
+  $("#openUpload").hidden = !mem;
+  if(mem) loadMemory();
+}
+$("#tabChallenge").onclick = ()=> switchTab(false);
+$("#tabMemory").onclick    = ()=> switchTab(true);
+
+function phCell(it){
+  memItemMap[it.id] = it;
+  const play = it.kind==="video"
+    ? `<span class="play"><svg viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></span><span class="dur">${fmtDur(it.duration)}</span>`
+    : "";
+  const cap = it.caption ? `<span class="cap">${escHtml(it.caption)}</span>` : "";
+  return `<div class="ph" data-id="${it.id}">
+    <img loading="lazy" src="${MEM_API}${it.thumb}" alt="">
+    <span class="who" style="background:${memColor(it.uploader)}"></span>${play}${cap}</div>`;
+}
+
+async function loadMemory(){
+  try{
+    const [s, l] = await Promise.all([
+      fetch(MEM_API+"/api/stats").then(r=>r.json()),
+      fetch(MEM_API+"/api/list").then(r=>r.json())
+    ]);
+    $("#memSince").textContent  = s.since || "—";
+    $("#memPhotos").textContent = s.photos || 0;
+    $("#memVideos").textContent = s.videos || 0;
+    if(!l.months || !l.months.length){
+      $("#memAlbum").innerHTML = `<div class="memempty">아직 올린 추억이 없어요.<br>아래 버튼으로 셋이 함께한 순간을 올려보세요 📸</div>`;
+      return;
+    }
+    memItemMap = {};
+    $("#memAlbum").innerHTML = l.months.map(mo=>`
+      <div class="monthhead"><span class="mo">${mo.label}</span><span class="cnt">${mo.items.length}</span><span class="line"></span></div>
+      <div class="agrid">${mo.items.map(phCell).join("")}</div>`).join("");
+    $("#memAlbum").querySelectorAll(".ph").forEach(el=>{
+      el.onclick = ()=> openViewer(memItemMap[el.dataset.id]);
+    });
+  }catch(e){
+    $("#memAlbum").innerHTML = `<div class="memempty">사진 서버에 연결이 안 돼요.<br>잠시 후 다시 시도해 주세요.</div>`;
+  }
+}
+
+/* ----- 뷰어 ----- */
+function openViewer(it){
+  if(!it) return;
+  curViewId = it.id;
+  $("#vBody").innerHTML = it.kind==="video"
+    ? `<video controls autoplay playsinline src="${MEM_API}${it.src}"></video>`
+    : `<img src="${MEM_API}${it.src}" alt="">`;
+  $("#vMeta").textContent = [it.uploader, it.taken_at, it.caption].filter(Boolean).join(" · ");
+  $("#viewer").classList.add("on");
+}
+function closeViewer(){ $("#viewer").classList.remove("on"); $("#vBody").innerHTML=""; curViewId=null; }
+$("#vClose").onclick = closeViewer;
+$("#viewer").onclick = e=>{ if(e.target===$("#viewer")) closeViewer(); };
+$("#vDel").onclick = async ()=>{
+  if(!curViewId || !confirm("이 추억을 삭제할까요?")) return;
+  try{
+    const r = await fetch(MEM_API+"/api/item/"+curViewId, {method:"DELETE"});
+    if(!r.ok){ toast("삭제 실패"); return; }
+    closeViewer(); toast("삭제됐어요"); loadMemory();
+  }catch(e){ toast("삭제 실패"); }
+};
+
+/* ----- 업로드 ----- */
+function buildUpSeg(){
+  const COLORS=["var(--m1)","var(--m2)","var(--m3)"];
+  $("#upMemberSeg").innerHTML = members.map((m,i)=>
+    `<button data-name="${escHtml(m.name)}" style="--c:${COLORS[(m.sort_order-1)%3]}">${m.name}</button>`).join("");
+  $("#upMemberSeg").querySelectorAll("button").forEach(b=>{
+    b.onclick=()=>{
+      upMember = b.dataset.name;
+      $("#upMemberSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("sel", x===b));
+    };
+  });
+}
+$("#openUpload").onclick = ()=> $("#fileInput").click();
+$("#fileInput").onchange = e=>{
+  pendingFiles = [...e.target.files];
+  e.target.value = "";               // 같은 파일 재선택 허용
+  if(!pendingFiles.length) return;
+  const pv = $("#upPreview"); pv.innerHTML="";
+  pendingFiles.slice(0,6).forEach(f=>{
+    if(f.type.startsWith("image")){
+      const u = URL.createObjectURL(f);
+      pv.innerHTML += `<img class="pv" src="${u}">`;
+    }else{
+      pv.innerHTML += `<div class="pvmore">🎥</div>`;
+    }
+  });
+  if(pendingFiles.length>6) pv.innerHTML += `<div class="pvmore">+${pendingFiles.length-6}</div>`;
+  $("#upDate").value = fileDate(pendingFiles[0]);
+  $("#upCaption").value = "";
+  $("#upProg").textContent = `${pendingFiles.length}개 선택됨`;
+  upMember = null; buildUpSeg();
+  $("#upScrim").classList.add("on");
+};
+$("#upCancel").onclick = ()=>{ $("#upScrim").classList.remove("on"); pendingFiles=[]; };
+$("#upScrim").onclick = e=>{ if(e.target===$("#upScrim")) $("#upCancel").click(); };
+$("#upSave").onclick = async ()=>{
+  if(!upMember){ toast("누가 올리는지 선택하세요"); return; }
+  if(!pendingFiles.length) return;
+  const cap = $("#upCaption").value.trim();
+  const dateOverride = $("#upDate").value;
+  $("#upSave").disabled = true;
+  let done = 0;
+  for(let i=0;i<pendingFiles.length;i++){
+    const f = pendingFiles[i];
+    $("#upProg").textContent = `올리는 중… ${i+1}/${pendingFiles.length}`;
+    const fd = new FormData();
+    fd.append("file", f);
+    fd.append("uploader", upMember);
+    fd.append("caption", cap);
+    fd.append("taken_at", dateOverride || fileDate(f));
+    try{
+      const r = await fetch(MEM_API+"/api/upload", {method:"POST", body:fd});
+      if(r.ok) done++;
+    }catch(e){}
+  }
+  $("#upSave").disabled = false;
+  $("#upScrim").classList.remove("on");
+  toast(`${done}개 올렸어요`);
+  pendingFiles = [];
+  loadMemory();
+};
 
 /* ---------- 시작 ---------- */
 (function init(){
