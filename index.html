@@ -812,7 +812,8 @@ $("#upSave").onclick = async ()=>{
   }
   $("#upSave").disabled = false;
   $("#upScrim").classList.remove("on");
-  toast(`${done}개 올렸어요`);
+  const fail = pendingFiles.length - done;
+  toast(fail ? `${done}개 완료 · ${fail}개 실패 (큰 건 하나씩 올려봐)` : `${done}개 올렸어요`);
   pendingFiles = [];
   loadMemory();
 };
