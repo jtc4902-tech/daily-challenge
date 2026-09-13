@@ -635,6 +635,19 @@ function subscribeRealtime(){
    3. 📸 추억 탭 — 사진/영상 (우리 서버: memories.apexlog.kr)
    ============================================================ */
 const MEM_API = "https://memories.apexlog.kr";
+// 2026-09-13 F01: 쓰기(업로드·수정·삭제)에 X-Upload-Key 필수(서버 잠금). 키는 첫 쓰기 때 한 번 물어 이 기기 localStorage 에 보관.
+const MEM_KEY_LS = "mem_upload_key";
+function memKey(){
+  let k = null;
+  try{ k = localStorage.getItem(MEM_KEY_LS); }catch(e){}
+  if(!k){ k = (prompt("추억 업로드 키를 입력하세요 (한 번만)")||"").trim(); if(k){ try{ localStorage.setItem(MEM_KEY_LS, k); }catch(e){} } }
+  return k || "";
+}
+function memHeaders(h){ return Object.assign({"X-Upload-Key": memKey()}, h||{}); }
+function memAuthFail(r){   // 401/403 → 저장된 키 폐기(다음 시도에 다시 묻는다)
+  if(r && (r.status===401 || r.status===403)){ try{ localStorage.removeItem(MEM_KEY_LS); }catch(e){} toast("업로드 키가 틀리거나 서버가 잠겨 있어요"); return true; }
+  return false;
+}
 let pendingFiles = [];
 let upMember = null;      // 업로더 이름
 let curViewId = null;     // 뷰어에서 보고 있는 항목 id
@@ -715,8 +728,8 @@ $("#viewer").onclick = e=>{ if(e.target===$("#viewer")) closeViewer(); };
 $("#vDel").onclick = async ()=>{
   if(!curViewId || !confirm("이 추억을 삭제할까요?")) return;
   try{
-    const r = await fetch(MEM_API+"/api/item/"+curViewId, {method:"DELETE"});
-    if(!r.ok){ toast("삭제 실패"); return; }
+    const r = await fetch(MEM_API+"/api/item/"+curViewId, {method:"DELETE", headers:memHeaders()});
+    if(!r.ok){ if(!memAuthFail(r)) toast("삭제 실패"); return; }
     closeViewer(); toast("삭제됐어요"); loadMemory();
   }catch(e){ toast("삭제 실패"); }
 };
@@ -725,10 +738,10 @@ $("#vSaveDate").onclick = async ()=>{
   if(!curViewId || !nd){ toast("날짜를 골라주세요"); return; }
   try{
     const r = await fetch(MEM_API+"/api/item/"+curViewId, {
-      method:"PATCH", headers:{"Content-Type":"application/json"},
+      method:"PATCH", headers:memHeaders({"Content-Type":"application/json"}),
       body: JSON.stringify({taken_at: nd})
     });
-    if(!r.ok){ toast("날짜 수정 실패"); return; }
+    if(!r.ok){ if(!memAuthFail(r)) toast("날짜 수정 실패"); return; }
     closeViewer(); toast("날짜를 바꿨어요"); loadMemory();
   }catch(e){ toast("날짜 수정 실패"); }
 };
@@ -778,18 +791,19 @@ async function uploadOne(f, meta, onprog){
     const fd = new FormData();
     fd.append("file", f); fd.append("uploader", meta.uploader);
     fd.append("caption", meta.caption); fd.append("taken_at", meta.taken_at);
-    const r = await fetch(MEM_API+"/api/upload", {method:"POST", body:fd});
+    const r = await fetch(MEM_API+"/api/upload", {method:"POST", headers:memHeaders(), body:fd});
+    if(!r.ok) memAuthFail(r);
     return r.ok;
   }
   const uid = newUid();                            // 대용량 → 청크 전송
   for(let off=0; off<f.size; off+=CHUNK){
     const end = Math.min(off+CHUNK, f.size);
-    const r = await fetch(MEM_API+"/api/chunk", {method:"POST", headers:{"X-Upload-Id":uid}, body:f.slice(off,end)});
-    if(!r.ok) return false;
+    const r = await fetch(MEM_API+"/api/chunk", {method:"POST", headers:memHeaders({"X-Upload-Id":uid}), body:f.slice(off,end)});
+    if(!r.ok){ memAuthFail(r); return false; }
     if(onprog) onprog(end/f.size);
   }
   const r = await fetch(MEM_API+"/api/chunk_complete", {method:"POST",
-    headers:{"Content-Type":"application/json"},
+    headers:memHeaders({"Content-Type":"application/json"}),
     body: JSON.stringify({uid, filename:f.name, uploader:meta.uploader, caption:meta.caption, taken_at:meta.taken_at})});
   return r.ok;
 }
