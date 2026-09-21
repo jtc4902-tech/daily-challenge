@@ -82,6 +82,7 @@
   .chip.fail{background:rgba(255,93,99,.16);color:#ff8388}
   .chip.vacation{background:rgba(70,198,255,.15);color:#7ad4ff}
   .chip.meeting{background:rgba(169,139,255,.16);color:#c0aaff}
+  .chip.bonus{background:rgba(255,204,92,.16);color:#ffd27a}
   .chip.settlement{background:rgba(255,206,74,.15);color:#ffd86b}
 
   /* legend */
@@ -252,7 +253,7 @@
     </div>
     <div class="rule">
       <div class="rt">🏖️ 휴가</div>
-      <div class="rd">매월 1일 1개씩 자동 적립되고, 휴가 쓴 날은 실패로 치지 않아요. 여행 · 가족 행사 · 예비군 같은 계획된 사정에 쓰는 게 기본이고, <b>남은 휴가로 실패를 차감하는 것도 OK</b>예요(실패 기록을 휴가로 바꾸면 벌금 없음). <span style="opacity:.6">(2026-07 개정: 벌금이 생각보다 잘 쌓여서 용도 완화)</span><br>단, <b>남은 휴가는 해가 바뀌면 초기화돼요(이월 안 됨)</b> — 연말 몰아쓰기는 계속 ❌</div>
+      <div class="rd">매월 1일 1개씩 자동 적립되고, 휴가 쓴 날은 실패로 치지 않아요. 여행 · 가족 행사 · 예비군 같은 계획된 사정에 쓰는 게 기본이고, <b>남은 휴가로 실패를 차감하는 것도 OK</b>예요. 명절 상여금처럼 🎁 보너스 휴가가 지급되면 그만큼 더 쌓여요(실패 기록을 휴가로 바꾸면 벌금 없음). <span style="opacity:.6">(2026-07 개정: 벌금이 생각보다 잘 쌓여서 용도 완화)</span><br>단, <b>남은 휴가는 해가 바뀌면 초기화돼요(이월 안 됨)</b> — 연말 몰아쓰기는 계속 ❌</div>
     </div>
     <div class="rule">
       <div class="rt">✍️ 기록 방법</div>
@@ -374,8 +375,10 @@ const PENALTY = 3300; // 실패 1회당 벌금(원). 바뀌면 이 숫자만 수
 /* ============================================================
    2. 이하 코드는 건드릴 필요 없음
    ============================================================ */
-const TYPE_KO = {fail:"실패", vacation:"휴가", meeting:"모임", settlement:"정산"};
-const TYPE_EMOJI = {fail:"❌", vacation:"🏖️", meeting:"👥", settlement:"💰"};
+const TYPE_KO = {fail:"실패", vacation:"휴가", meeting:"모임", settlement:"정산", bonus:"보너스 휴가"};
+const TYPE_EMOJI = {fail:"❌", vacation:"🏖️", meeting:"👥", settlement:"💰", bonus:"🎁"};
+// 보너스 휴가(type=bonus): 명절 상여금 등으로 관리자가 지급. 그 해의 적립 휴가에 +1씩 더해진다.
+function bonusOf(mid, yr){ return records.filter(r=>r.member_id===mid && r.type==="bonus" && r.date.slice(0,4)===yr).length; }
 const notReady = SUPABASE_URL.startsWith("YOUR_");
 let sb = null;
 if(!notReady){ sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON); }
@@ -408,7 +411,7 @@ function remainingVac(mid, excludeId){
   if(!m) return 0;
   const yr = String(new Date().getFullYear());
   const used = records.filter(r=>r.member_id===mid && r.type==="vacation" && r.id!==excludeId && r.date.slice(0,4)===yr).length;
-  return monthsAccrued(m.join_month) - used;
+  return monthsAccrued(m.join_month) + bonusOf(mid, yr) - used;
 }
 
 function comma(n){ return n.toLocaleString("ko-KR"); }
@@ -447,7 +450,7 @@ function renderMembers(){
   $("#members").innerHTML = ranked.map((m,i)=>{
     const fails = failOf(m);
     const vacUsed = records.filter(r=>r.member_id===m.id && r.type==="vacation" && r.date.slice(0,4)===String(new Date().getFullYear())).length;
-    const accrued = monthsAccrued(m.join_month);
+    const accrued = monthsAccrued(m.join_month) + bonusOf(m.id, String(new Date().getFullYear()));
     const left = accrued - vacUsed;
     const money = fails * PENALTY;
     const color = COLORS[(m.sort_order-1)%3];   // 색깔은 사람마다 고정
